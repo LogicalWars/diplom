@@ -33,14 +33,19 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
         String token = request.getHeader("auth-token");
 
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7); // remove "Bearer "
+        }
+
         if (token != null && tokenService.exists(token)){
-            String username = tokenService.getUsernameByToken(token);
+            String username = tokenService.getLoginByToken(token);
 
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(username, null, List.of());
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
+        filterChain.doFilter(request, response);
     }
 }
 

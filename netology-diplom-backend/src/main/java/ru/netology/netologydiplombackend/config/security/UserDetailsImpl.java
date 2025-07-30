@@ -15,17 +15,17 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return Collections.emptyList(); // ролей нет
+        return Collections.emptyList();
     }
 
     @Override
     public String getPassword() {
-        return user.getPassword(); // из базы
+        return user.getPassword();
     }
 
     @Override
     public String getUsername() {
-        return user.getLogin(); // из базы
+        return user.getLogin();
     }
 
     @Override public boolean isAccountNonExpired() { return true; }

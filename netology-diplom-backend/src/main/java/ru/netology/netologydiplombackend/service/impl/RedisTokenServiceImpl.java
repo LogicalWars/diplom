@@ -25,7 +25,7 @@ public class RedisTokenServiceImpl implements TokenService {
     }
 
     @Override
-    public String getUsernameByToken(String token) {
+    public String getLoginByToken(String token) {
         return redisTemplate.opsForValue().get(token);
     }
 

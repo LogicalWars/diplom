@@ -1,4 +1,4 @@
-package ru.netology.netologydiplombackend.service;
+package ru.netology.netologydiplombackend.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;

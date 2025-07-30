@@ -1,0 +1,34 @@
+POST http://localhost:8082/login
+Content-Type: application/json
+
+{
+  "login": "admin",
+  "password": "admin"
+}
+
+###
+
+GET http://localhost:8082/secret
+auth-token: f47908af-ab02-4c13-bd8b-30d3f
+
+###
+
+POST http://localhost:8082/logout
+auth-token: 01460210-c6e0-4f28-86cc-c54a47f920b7
+
+###
+
+POST http://localhost:8082/file?filename=myFile.txt
+auth-token: 62c2e69d-5570-4ff6-a349-0443dc12eed2
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="hash"
+
+abc123
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="example.txt"
+Content-Type: application/octet-stream
+
+< ./example.txt
+--WebAppBoundary--
