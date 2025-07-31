@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class FilesListResponse {
+public class FileForListResponse {
     private String filename;
     private Long size;
 }

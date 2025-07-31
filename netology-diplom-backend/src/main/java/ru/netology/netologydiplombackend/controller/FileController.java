@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import ru.netology.netologydiplombackend.dto.file.FileResponse;
-import ru.netology.netologydiplombackend.dto.file.FilesListResponse;
+import ru.netology.netologydiplombackend.dto.file.FileForListResponse;
 import ru.netology.netologydiplombackend.dto.file.UpdateRequest;
 import ru.netology.netologydiplombackend.service.FileService;
 
@@ -30,8 +30,8 @@ public class FileController {
 
     @GetMapping("/file")
     public ResponseEntity<byte[]> getFile(@RequestParam("filename") String filename) {
+        System.out.println("test");
         FileResponse fileResponse = fileService.getFileByFileName(filename);
-
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileResponse.getFilename() + "\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -52,7 +52,7 @@ public class FileController {
     }
 
     @GetMapping("/list")
-    public List<FilesListResponse> getFiles(@RequestParam("limit") int limit) {
+    public List<FileForListResponse> getFiles(@RequestParam("limit") int limit) {
         return fileService.getFiles(limit);
     }
 }

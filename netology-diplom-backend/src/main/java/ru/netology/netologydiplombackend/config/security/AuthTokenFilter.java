@@ -26,10 +26,12 @@ public class AuthTokenFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
 
-        if ("/login".equals(request.getRequestURI())) {
+        if ("/login".equals(request.getRequestURI()) ||
+                request.getRequestURI().startsWith("/actuator/")) {
             filterChain.doFilter(request, response);
             return;
         }
+
 
         String token = request.getHeader("auth-token");
 

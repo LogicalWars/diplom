@@ -26,7 +26,7 @@ public class SecurityConfig {
                 .and()
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login").permitAll()
+                        .requestMatchers("/login", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .logout(logout -> logout.disable())

@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import ru.netology.netologydiplombackend.dto.file.FileResponse;
-import ru.netology.netologydiplombackend.dto.file.FilesListResponse;
+import ru.netology.netologydiplombackend.dto.file.FileForListResponse;
 import ru.netology.netologydiplombackend.dto.file.UpdateRequest;
 import ru.netology.netologydiplombackend.exception.ApiException;
 import ru.netology.netologydiplombackend.model.File;
@@ -69,10 +69,10 @@ public class FileServiceImpl implements FileService {
     }
 
     @Override
-    public List<FilesListResponse> getFiles(int limit) {
+    public List<FileForListResponse> getFiles(int limit) {
         return fileRepository.findTopByUser(getCurrentUser(), limit)
                 .stream()
-                .map(file -> new FilesListResponse(file.getFilename(), file.getSize()))
+                .map(file -> new FileForListResponse(file.getFilename(), file.getSize()))
                 .toList();
     }
 

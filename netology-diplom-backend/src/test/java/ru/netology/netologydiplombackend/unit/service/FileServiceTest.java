@@ -10,6 +10,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.multipart.MultipartFile;
+import ru.netology.netologydiplombackend.dto.file.FileResponse;
+import ru.netology.netologydiplombackend.dto.file.FileForListResponse;
+import ru.netology.netologydiplombackend.dto.file.UpdateRequest;
 import ru.netology.netologydiplombackend.exception.ApiException;
 import ru.netology.netologydiplombackend.model.File;
 import ru.netology.netologydiplombackend.model.User;
@@ -19,12 +22,14 @@ import ru.netology.netologydiplombackend.service.impl.FileServiceImpl;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import static ru.netology.netologydiplombackend.exception.ErrorContainer.FILE_ALREADY_EXISTS;
+import static ru.netology.netologydiplombackend.exception.ErrorContainer.FILE_NOT_FOUND;
 
 @ExtendWith(MockitoExtension.class)
 public class FileServiceTest {
@@ -88,7 +93,112 @@ public class FileServiceTest {
         verify(fileRepository, never()).save(any());
     }
 
-    private void setUpAuthenticationUser() {
+
+    @Test
+    void getFileByFileName_shouldReturnFileWhenExists() {
+        when(fileRepository.findByFilename(FILENAME)).thenReturn(Optional.of(createFile(FILENAME, DATA.getBytes())));
+
+        FileResponse response = fileService.getFileByFileName(FILENAME);
+
+        assertEquals(FILENAME, response.getFilename());
+        assertArrayEquals(DATA.getBytes(), response.getData());
+    }
+
+    @Test
+    void getFileByName_shouldThrowExceptionWhenFileDoesNotExist() {
+        when(fileRepository.findByFilename(FILENAME)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> fileService.getFileByFileName(FILENAME));
+
+        assertEquals(FILE_NOT_FOUND.getErrorCode(), exception.getErrorCode());
+    }
+
+    @Test
+    void updateFile_shouldSuccessfulUpdateFilename() {
+        String newFilename = "new_filename";
+        UpdateRequest request = new UpdateRequest();
+        request.setFilename(newFilename);
+
+        ArgumentCaptor<File> entityCaptor = ArgumentCaptor.forClass(File.class);
+
+        when(fileRepository.findByFilename(FILENAME)).thenReturn(Optional.of(createFile(FILENAME, DATA.getBytes())));
+
+        fileService.updateFile(FILENAME, request);
+
+        verify(fileRepository).save(entityCaptor.capture());
+        assertEquals(newFilename, entityCaptor.getValue().getFilename());
+    }
+
+    @Test
+    void updateFile_shouldThrowExceptionWhenFileDoesNotExist() {
+        when(fileRepository.findByFilename(FILENAME)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> fileService.updateFile(FILENAME, new UpdateRequest()));
+
+        assertEquals(FILE_NOT_FOUND.getErrorCode(), exception.getErrorCode());
+    }
+
+    @Test
+    void deleteFile_shouldSuccessfulDeleteFile() {
+        ArgumentCaptor<String> entityCaptor = ArgumentCaptor.forClass(String.class);
+
+        when(fileRepository.findByFilename(FILENAME)).thenReturn(Optional.of(createFile(FILENAME, DATA.getBytes())));
+
+        fileService.deleteFile(FILENAME);
+
+        verify(fileRepository).deleteByFilename(entityCaptor.capture());
+        assertEquals(FILENAME, entityCaptor.getValue());
+    }
+
+    @Test
+    void deleteFile_shouldThrowExceptionWhenFileDoesNotExist() {
+        when(fileRepository.findByFilename(FILENAME)).thenReturn(Optional.empty());
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> fileService.deleteFile(FILENAME));
+
+        assertEquals(FILE_NOT_FOUND.getErrorCode(), exception.getErrorCode());
+    }
+
+    @Test
+    void getFiles_shouldReturnFiles() {
+        int limit = 3;
+
+        List<File> listOfFiles = new ArrayList<>();
+        for (int i = 0; i < limit; i++) {
+            listOfFiles.add(createFile(FILENAME + "_" + i, DATA.getBytes()));
+        }
+
+        when(fileRepository.findTopByUser(setUpAuthenticationUser(), limit)).thenReturn(listOfFiles);
+
+        List<FileForListResponse> responseList = fileService.getFiles(limit);
+
+        assertEquals(limit, responseList.size());
+        for (int i = 0; i < limit; i++) {
+            assertEquals(FILENAME + "_" + i, responseList.get(i).getFilename());
+        }
+    }
+
+    @Test
+    void getFiles_shouldReturnEmptyList() {
+        int limit = 3;
+        when(fileRepository.findTopByUser(setUpAuthenticationUser(), limit)).thenReturn(List.of());
+
+        List<FileForListResponse> responseList = fileService.getFiles(limit);
+
+        assertEquals(0, responseList.size());
+    }
+
+    private static File createFile(String filename, byte[] data) {
+        File file = new File();
+        file.setFilename(filename);
+        file.setData(data);
+        return file;
+    }
+
+    private User setUpAuthenticationUser() {
         User user = new User();
         user.setLogin(LOGIN);
         user.setPassword("password");
@@ -98,5 +208,9 @@ public class FileServiceTest {
                 new UsernamePasswordAuthenticationToken(LOGIN, null, List.of());
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        return user;
     }
+
+
 }

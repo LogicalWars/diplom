@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -14,6 +15,8 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import ru.netology.netologydiplombackend.config.TestSecurityConfig;
 import ru.netology.netologydiplombackend.dto.ErrorResponse;
+import ru.netology.netologydiplombackend.dto.file.FileForListResponse;
+import ru.netology.netologydiplombackend.dto.file.UpdateRequest;
 import ru.netology.netologydiplombackend.integration.TestcontainersConfiguration;
 import ru.netology.netologydiplombackend.model.File;
 import ru.netology.netologydiplombackend.model.User;
@@ -21,9 +24,12 @@ import ru.netology.netologydiplombackend.repository.FileRepository;
 import ru.netology.netologydiplombackend.repository.UserRepository;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static ru.netology.netologydiplombackend.exception.ErrorContainer.FILE_ALREADY_EXISTS;
+import static ru.netology.netologydiplombackend.exception.ErrorContainer.FILE_NOT_FOUND;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestSecurityConfig.class)
@@ -60,7 +66,6 @@ public class FileControllerIntegrationTest extends TestcontainersConfiguration {
             userRepository.save(user);
         }
 
-        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         headers.set("auth-token", "test-token");
     }
 
@@ -96,12 +101,7 @@ public class FileControllerIntegrationTest extends TestcontainersConfiguration {
 
     @Test
     void uploadFile_shouldReturnErrorFileAlreadyExists() {
-        File alreadyExistsFile = new File();
-        alreadyExistsFile.setFilename(FILENAME);
-        alreadyExistsFile.setData(DATA.getBytes());
-        alreadyExistsFile.setUser(user);
-
-        fileRepository.save(alreadyExistsFile);
+        generateFilesInDatabase();
 
         HttpEntity<MultiValueMap<String, Object>> requestEntity = getMultiValueMapHttpEntity();
 
@@ -111,9 +111,193 @@ public class FileControllerIntegrationTest extends TestcontainersConfiguration {
                 ErrorResponse.class
         );
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("File already exists: %s".formatted(FILENAME), response.getBody().getMessage());
-        assertEquals(40002, response.getBody().getId());
+        assertEquals(FILE_ALREADY_EXISTS.getMessage() + ": " + FILENAME, response.getBody().getMessage());
+        assertEquals(FILE_ALREADY_EXISTS.getErrorCode(), response.getBody().getId());
     }
+
+    @Test
+    void getFile_shouldReturnOkAndFileData() {
+        generateFilesInDatabase();
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+
+        ResponseEntity<byte[]> response = restTemplate.exchange(
+                "/file?filename=%s".formatted(FILENAME),
+                HttpMethod.GET,
+                requestEntity,
+                byte[].class
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertArrayEquals(DATA.getBytes(), response.getBody());
+
+        assertEquals(MediaType.APPLICATION_OCTET_STREAM, response.getHeaders().getContentType());
+        assertTrue(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION).contains(FILENAME));
+    }
+
+    @Test
+    void getFile_shouldReturnErrorFileNotFound() {
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+
+        ResponseEntity<ErrorResponse> response = restTemplate.exchange(
+                "/file?filename=%s".formatted(FILENAME),
+                HttpMethod.GET,
+                requestEntity,
+                ErrorResponse.class
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(FILE_NOT_FOUND.getMessage() + ": " + FILENAME, response.getBody().getMessage());
+        assertEquals(FILE_NOT_FOUND.getErrorCode(), response.getBody().getId());
+    }
+
+    @Test
+    void updateFile_shouldReturnOkAndSuccessfulUpdateFilename() {
+        String newFilename = "newFilename";
+
+        generateFilesInDatabase();
+
+        UpdateRequest updateRequest = new UpdateRequest();
+        updateRequest.setFilename(newFilename);
+
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<UpdateRequest> requestEntity = new HttpEntity<>(updateRequest, headers);
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/file?filename=%s".formatted(FILENAME),
+                HttpMethod.PUT,
+                requestEntity,
+                Void.class
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+
+        assertTrue(fileRepository.findByFilename(newFilename).isPresent());
+        assertTrue(fileRepository.findByFilename(FILENAME).isEmpty());
+    }
+
+    @Test
+    void updateFile_shouldReturnErrorFileNotFound() {
+        String newFilename = "newFilename";
+
+        UpdateRequest updateRequest = new UpdateRequest();
+        updateRequest.setFilename(newFilename);
+
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<UpdateRequest> requestEntity = new HttpEntity<>(updateRequest, headers);
+
+        ResponseEntity<ErrorResponse> response = restTemplate.exchange(
+                "/file?filename=%s".formatted(FILENAME),
+                HttpMethod.PUT,
+                requestEntity,
+                ErrorResponse.class
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(FILE_NOT_FOUND.getMessage() + ": " + FILENAME, response.getBody().getMessage());
+        assertEquals(FILE_NOT_FOUND.getErrorCode(), response.getBody().getId());
+    }
+
+    @Test
+    void deleteFile_shouldReturnOkAndSuccessfulDeleteFile() {
+        generateFilesInDatabase();
+
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/file?filename=%s".formatted(FILENAME),
+                HttpMethod.DELETE,
+                requestEntity,
+                Void.class
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertFalse(fileRepository.findByFilename(FILENAME).isPresent());
+    }
+
+    @Test
+    void deleteFile_shouldReturnErrorFileNotFound() {
+
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<ErrorResponse> response = restTemplate.exchange(
+                "/file?filename=%s".formatted(FILENAME),
+                HttpMethod.DELETE,
+                requestEntity,
+                ErrorResponse.class
+        );
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals(FILE_NOT_FOUND.getMessage() + ": " + FILENAME, response.getBody().getMessage());
+        assertEquals(FILE_NOT_FOUND.getErrorCode(), response.getBody().getId());
+    }
+
+    @Test
+    void getFiles_shouldReturnOkAndListOfFilesIfExists() {
+        int limit = 3;
+        generateFilesInDatabase();
+
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<List<FileForListResponse>> response = restTemplate.exchange(
+                "/list?limit=%d".formatted(limit),
+                HttpMethod.GET,
+                requestEntity,
+                new ParameterizedTypeReference<>() {
+                }
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertFalse(response.getBody().isEmpty());
+        assertTrue(response.getBody().size() <= limit);
+        assertEquals(FileForListResponse.class, response.getBody().getFirst().getClass());
+        assertEquals(SIZE, response.getBody().getFirst().getSize());
+    }
+
+    @Test
+    void getFiles_shouldReturnEmptyList() {
+        int limit = 3;
+
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Void> requestEntity = new HttpEntity<>(headers);
+        ResponseEntity<List<FileForListResponse>> response = restTemplate.exchange(
+                "/list?limit=%d".formatted(limit),
+                HttpMethod.GET,
+                requestEntity,
+                new ParameterizedTypeReference<>() {
+                }
+        );
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getBody().isEmpty());
+    }
+
+
+    private void generateFilesInDatabase() {
+        int count = 3;
+        fileRepository.save(createFile(FILENAME, DATA.getBytes()));
+        for (int i = 0; i < count; i++) {
+            File file = createFile(FILENAME + "_" + i, DATA.getBytes());
+            fileRepository.save(file);
+        }
+    }
+
+    private File createFile(String filename, byte[] data) {
+        File file = new File();
+        file.setFilename(filename);
+        file.setData(data);
+        file.setSize(SIZE);
+        file.setContentType(CONTENT_TYPE);
+        file.setHash(HASH);
+        file.setUser(userRepository.findByLogin(LOGIN)
+                .stream()
+                .findFirst()
+                .orElseThrow()
+        );
+        return file;
+    }
+
 
     private static HttpEntity<MultiValueMap<String, Object>> getMultiValueMapHttpEntity() {
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
@@ -127,6 +311,7 @@ public class FileControllerIntegrationTest extends TestcontainersConfiguration {
 
         body.add("file", fileAsResource);
         body.add("hash", HASH);
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         return new HttpEntity<>(body, headers);
     }

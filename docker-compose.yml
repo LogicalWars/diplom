@@ -1,4 +1,38 @@
 services:
+  frontend:
+    build:
+      context: ./netology-diplom-frontend
+      dockerfile: Dockerfile
+      args:
+        VUE_APP_BASE_URL: "http://localhost:8081"
+    ports:
+      - "8080:8080"
+    networks:
+      - diplom-app
+
+  backend:
+    build: ./netology-diplom-backend
+    depends_on:
+      - postgres
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/diplom
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - APPLICATION_PORT=8080
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - diplom-app
+
   postgres:
     image: postgres:15-alpine
     environment:
@@ -7,21 +41,17 @@ services:
       POSTGRES_DB: diplom
     volumes:
       - pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - diplom-app
 
-  frontend:
-    build:
-      context: ./netology-diplom-frontend
-      dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
-
-
+  redis:
+    image: redis:7-alpine
+    networks:
+      - diplom-app
 
 
 networks:
-  cloud-app:
+  diplom-app:
 
 volumes:
   pgdata:

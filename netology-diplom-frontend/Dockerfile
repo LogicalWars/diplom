@@ -1,5 +1,9 @@
 FROM node:18-alpine
 
+ARG VUE_APP_BASE_URL
+
+ENV VUE_APP_BASE_URL=$VUE_APP_BASE_URL
+
 WORKDIR /app
 
 COPY package*.json ./
