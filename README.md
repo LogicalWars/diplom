@@ -14,5 +14,5 @@
 
 1. Скачать проект: https://github.com/LogicalWars/diplom.git
 2. Запустить сборку на backend приложении через ```mvn clean package```
-3. В терминале ввести команду ```docker compose --build -d```
+3. В терминале ввести команду ```docker compose up --build -d```
 4. Открыть страницу по адресу http://localhost:8080/
